@@ -1,0 +1,18 @@
+{
+    "makefile.configurations": [
+        {
+            "name": "MyMake",
+            "makeArgs": [
+                "-j"
+            ]
+        }
+    ],
+    "makefile.launchConfigurations": [
+        {
+            "cwd": "/Users/ben/STM32Cube/Robot_STM32/build",
+            "binaryPath": "/Users/ben/STM32Cube/Robot_STM32/build/Robot_STM32.elf",
+            "binaryArgs": []
+        }
+    ],
+    "C_Cpp.default.configurationProvider": "ms-vscode.makefile-tools"
+}
