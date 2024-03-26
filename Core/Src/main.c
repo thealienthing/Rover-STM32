@@ -24,7 +24,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
-#include <MPU9250.h>
+// #include <MPU9250.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -52,6 +52,7 @@ ETH_HandleTypeDef heth;
 
 I2C_HandleTypeDef hi2c1;
 
+UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
 
 PCD_HandleTypeDef hpcd_USB_OTG_FS;
@@ -61,7 +62,7 @@ osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
     .name = "defaultTask",
     .stack_size = 128 * 4,
-    .priority = (osPriority_t)osPriorityNormal,
+    .priority = (osPriority_t)osPriorityNormal7,
 };
 /* Definitions for myTask02 */
 osThreadId_t myTask02Handle;
@@ -71,7 +72,7 @@ const osThreadAttr_t myTask02_attributes = {
     .priority = (osPriority_t)osPriorityLow,
 };
 /* USER CODE BEGIN PV */
-const address = MPU9250_ADDRESS;
+// const address = MPU9250_ADDRESS;
 
 /* USER CODE END PV */
 
@@ -82,6 +83,7 @@ static void MX_ETH_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_USB_OTG_FS_PCD_Init(void);
 static void MX_I2C1_Init(void);
+static void MX_USART2_UART_Init(void);
 void StartDefaultTask(void *argument);
 void StartTask02(void *argument);
 
@@ -131,96 +133,99 @@ void I2C_Scan()
   // HAL_UART_Transmit(&huart2, (uint8_t *)"\r\n", 2, HAL_MAX_DELAY);
   printf("\r\n");
 }
-
-void magWakeup(void)
-{
-  char bits;
-  i2c_readByte(address, PWR_MGMT_1, &bits);
-  bits &= ~0b01110000; // Turn off SLEEP, STANDBY, CYCLE
-  i2c_writeByte(address, MPU9250_ADDR_PWR_MGMT_1, bits);
-}
-
-void magEnableSlaveMode(void)
-{
-  char bits;
-
-  i2c_readByte(address, MPU9250_ADDR_INT_PIN_CFG, &bits);
-  bits |= 0b00000010; // Activate BYPASS_EN
-  i2c_writeByte(address, MPU9250_ADDR_INT_PIN_CFG, bits);
-}
-
-float adjustMagValue(int16_t value, uint8_t adjust)
-{
-  return ((float)value * (((((float)adjust - 128) * 0.5) / 128) + 1));
-}
-
-float MPU9250_magX(void)
-{
-  return adjustMagValue(MPU9250_magGet(1, 0), magXAdjust) + magXOffset;
-}
-
-float MPU9250_magY(void)
-{
-  return adjustMagValue(MPU9250_magGet(3, 2), magYAdjust) + magYOffset;
-}
-
-float MPU9250_magZ(void)
-{
-  return adjustMagValue(MPU9250_magGet(5, 4), magZAdjust) + magZOffset;
-}
-
-float MPU9250_magHorizDirection(void)
-{
-  return atan2(MPU9250_magX(), MPU9250_magY()) * 180 / Pi;
-}
-
-uint8_t MPU9250_magUpdate(void)
+void skip()
 {
 
-  i2c_ReadMulti(AK8963_ADDRESS, 0x03, 7, (char *)magBuf);
+  // void magWakeup(void)
+  // {
+  //   char bits;
+  //   i2c_readByte(address, PWR_MGMT_1, &bits);
+  //   bits &= ~0b01110000; // Turn off SLEEP, STANDBY, CYCLE
+  //   i2c_writeByte(address, MPU9250_ADDR_PWR_MGMT_1, bits);
+  // }
 
-  return 0;
-}
+  // void magEnableSlaveMode(void)
+  // {
+  //   char bits;
 
-void MPU9250_beginMag(uint8_t mode)
-{
+  //   i2c_readByte(address, MPU9250_ADDR_INT_PIN_CFG, &bits);
+  //   bits |= 0b00000010; // Activate BYPASS_EN
+  //   i2c_writeByte(address, MPU9250_ADDR_INT_PIN_CFG, bits);
+  // }
 
-  magWakeup();
-  magEnableSlaveMode();
-  magReadAdjustValues();
-  magSetMode(MAG_MODE_POWERDOWN);
-  magSetMode(mode);
-}
+  // float adjustMagValue(int16_t value, uint8_t adjust)
+  // {
+  //   return ((float)value * (((((float)adjust - 128) * 0.5) / 128) + 1));
+  // }
 
-void initMPU9250()
-{
-  uint8_t byte = 0;
-  HAL_I2C_Mem_Read(&hi2c1, MPU9250_ADDRESS, GYRO_CONFIG, 1, &byte, 1, 100);
-  byte = GYRO_FULL_SCALE_500_DPS;
-  HAL_I2C_Mem_Write(&hi2c1, MPU9250_ADDRESS, GYRO_CONFIG, 1, &byte, 1, 100);
-  byte = 0;
-  HAL_I2C_Mem_Read(&hi2c1, MPU9250_ADDRESS, GYRO_CONFIG, 1, &byte, 1, 100);
-  HAL_I2C_Master_Transmit()
-}
+  // float MPU9250_magX(void)
+  // {
+  //   return adjustMagValue(MPU9250_magGet(1, 0), magXAdjust) + magXOffset;
+  // }
 
-//     void readGyroData(int16_t *destination)
-//     {
-//         uint8_t rawData[6];                                                  // x/y/z gyro register data stored here
-//         readBytes(MPU9250_ADDRESS, GYRO_XOUT_H, 6, &rawData[0]);             // Read the six raw data registers sequentially into data array
-//         destination[0] = (int16_t)(((int16_t)rawData[0] << 8) | rawData[1]); // Turn the MSB and LSB into a signed 16-bit value
-//         destination[1] = (int16_t)(((int16_t)rawData[2] << 8) | rawData[3]);
-//         destination[2] = (int16_t)(((int16_t)rawData[4] << 8) | rawData[5]);
-//     }
+  // float MPU9250_magY(void)
+  // {
+  //   return adjustMagValue(MPU9250_magGet(3, 2), magYAdjust) + magYOffset;
+  // }
 
-void read_gyro()
-{
-  uint8_t gyro[6] = {0, 0, 0, 0, 0, 0};
-  HAL_I2C_Mem_Read(&hi2c1, MPU9250_ADDRESS, GYRO_XOUT_H, 6, &gyro[0], 6, 100);
-  int16_t gyro_x, gyro_y, gyro_z = 0;
-  gyro_x = (int16_t)(((int16_t)gyro[0] << 8) | gyro[1]);
-  gyro_y = (int16_t)(((int16_t)gyro[2] << 8) | gyro[3]);
-  gyro_z = (int16_t)(((int16_t)gyro[4] << 8) | gyro[5]);
-  printf("Gyro: (%d, %d, %d)\r\n", gyro_x, gyro_y, gyro_z);
+  // float MPU9250_magZ(void)
+  // {
+  //   return adjustMagValue(MPU9250_magGet(5, 4), magZAdjust) + magZOffset;
+  // }
+
+  // float MPU9250_magHorizDirection(void)
+  // {
+  //   return atan2(MPU9250_magX(), MPU9250_magY()) * 180 / Pi;
+  // }
+
+  // uint8_t MPU9250_magUpdate(void)
+  // {
+
+  //   i2c_ReadMulti(AK8963_ADDRESS, 0x03, 7, (char *)magBuf);
+
+  //   return 0;
+  // }
+
+  // void MPU9250_beginMag(uint8_t mode)
+  // {
+
+  //   magWakeup();
+  //   magEnableSlaveMode();
+  //   magReadAdjustValues();
+  //   magSetMode(MAG_MODE_POWERDOWN);
+  //   magSetMode(mode);
+  // }
+
+  // void initMPU9250()
+  // {
+  //   uint8_t byte = 0;
+  //   HAL_I2C_Mem_Read(&hi2c1, MPU9250_ADDRESS, GYRO_CONFIG, 1, &byte, 1, 100);
+  //   byte = GYRO_FULL_SCALE_500_DPS;
+  //   HAL_I2C_Mem_Write(&hi2c1, MPU9250_ADDRESS, GYRO_CONFIG, 1, &byte, 1, 100);
+  //   byte = 0;
+  //   HAL_I2C_Mem_Read(&hi2c1, MPU9250_ADDRESS, GYRO_CONFIG, 1, &byte, 1, 100);
+  //   HAL_I2C_Master_Transmit()
+  // }
+
+  // //     void readGyroData(int16_t *destination)
+  // //     {
+  // //         uint8_t rawData[6];                                                  // x/y/z gyro register data stored here
+  // //         readBytes(MPU9250_ADDRESS, GYRO_XOUT_H, 6, &rawData[0]);             // Read the six raw data registers sequentially into data array
+  // //         destination[0] = (int16_t)(((int16_t)rawData[0] << 8) | rawData[1]); // Turn the MSB and LSB into a signed 16-bit value
+  // //         destination[1] = (int16_t)(((int16_t)rawData[2] << 8) | rawData[3]);
+  // //         destination[2] = (int16_t)(((int16_t)rawData[4] << 8) | rawData[5]);
+  // //     }
+
+  // void read_gyro()
+  // {
+  //   uint8_t gyro[6] = {0, 0, 0, 0, 0, 0};
+  //   HAL_I2C_Mem_Read(&hi2c1, MPU9250_ADDRESS, GYRO_XOUT_H, 6, &gyro[0], 6, 100);
+  //   int16_t gyro_x, gyro_y, gyro_z = 0;
+  //   gyro_x = (int16_t)(((int16_t)gyro[0] << 8) | gyro[1]);
+  //   gyro_y = (int16_t)(((int16_t)gyro[2] << 8) | gyro[3]);
+  //   gyro_z = (int16_t)(((int16_t)gyro[4] << 8) | gyro[5]);
+  //   printf("Gyro: (%d, %d, %d)\r\n", gyro_x, gyro_y, gyro_z);
+  // }
 }
 
 /* USER CODE END 0 */
@@ -257,9 +262,10 @@ int main(void)
   MX_USART3_UART_Init();
   MX_USB_OTG_FS_PCD_Init();
   MX_I2C1_Init();
+  MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
   printf("Starting\n");
-  initMPU9250();
+  // initMPU9250();
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -451,6 +457,38 @@ static void MX_I2C1_Init(void)
 }
 
 /**
+ * @brief USART2 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_USART2_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART2_Init 0 */
+
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 9600;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART2_Init 2 */
+
+  /* USER CODE END USART2_Init 2 */
+}
+
+/**
  * @brief USART3 Initialization Function
  * @param None
  * @retval None
@@ -582,9 +620,9 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   if (GPIO_Pin == USER_Btn_Pin)
   {
     printf("Button pressed\n");
-    HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
-    I2C_Scan();
-    read_gyro();
+    // HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
+    // I2C_Scan();
+    // read_gyro();
   }
   else
   {
@@ -607,9 +645,17 @@ void StartDefaultTask(void *argument)
   /* Infinite loop */
   for (;;)
   {
-    osDelay(1000);
+    char rx_byte = 0;
     HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-    printf("Hello\n");
+    volatile HAL_StatusTy peDef ret_state;
+    do
+    {
+      ret_state = HAL_UART_Receive(&huart2, (uint8_t *)&rx_byte, 1, 200);
+      printf("%c", rx_byte);
+      if (ret_state == HAL_OK)
+        HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
+    } while (ret_state == HAL_OK);
+    osDelay(50);
   }
   /* USER CODE END 5 */
 }
